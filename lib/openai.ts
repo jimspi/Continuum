@@ -23,6 +23,8 @@ export interface Recommendation {
   action: string;
   link?: string;
   type: 'product' | 'action' | 'resource' | 'preparation';
+  context?: string; // The context that triggered this recommendation
+  priority?: 'low' | 'medium' | 'high';
 }
 
 // Analyze content and extract insights
@@ -117,6 +119,59 @@ export function mergeProfile(
   return merged;
 }
 
+// Detect context from content for proactive recommendations
+export function detectContext(content: string): {
+  contexts: string[];
+  timeContext?: string;
+} {
+  const contentLower = content.toLowerCase();
+  const contexts: string[] = [];
+  const currentHour = new Date().getHours();
+
+  // Time-based contexts
+  let timeContext: string | undefined;
+  if (currentHour >= 5 && currentHour < 12) {
+    timeContext = 'morning';
+    if (contentLower.includes('morning') || contentLower.includes('wake') || contentLower.includes('breakfast')) {
+      contexts.push('morning_routine');
+    }
+  } else if (currentHour >= 12 && currentHour < 17) {
+    timeContext = 'afternoon';
+  } else if (currentHour >= 17 && currentHour < 21) {
+    timeContext = 'evening';
+  } else {
+    timeContext = 'night';
+  }
+
+  // Activity contexts
+  if (contentLower.includes('podcast') || contentLower.includes('listening to')) {
+    contexts.push('podcast_consumer');
+  }
+  if (contentLower.includes('workout') || contentLower.includes('exercise') || contentLower.includes('gym')) {
+    contexts.push('fitness_activity');
+  }
+  if (contentLower.includes('meeting') || contentLower.includes('call') || contentLower.includes('presentation')) {
+    contexts.push('work_meeting');
+  }
+  if (contentLower.includes('tired') || contentLower.includes('exhausted') || contentLower.includes('sleep')) {
+    contexts.push('fatigue');
+  }
+  if (contentLower.includes('coffee') || contentLower.includes('cafe')) {
+    contexts.push('coffee');
+  }
+  if (contentLower.includes('reading') || contentLower.includes('book')) {
+    contexts.push('reading');
+  }
+  if (contentLower.includes('travel') || contentLower.includes('trip') || contentLower.includes('flight')) {
+    contexts.push('travel_planning');
+  }
+  if (contentLower.includes('cook') || contentLower.includes('recipe') || contentLower.includes('dinner')) {
+    contexts.push('cooking');
+  }
+
+  return { contexts, timeContext };
+}
+
 // Generate recommendations based on full user profile and new content
 export async function generateRecommendations(
   userProfile: UserProfile,
@@ -124,6 +179,26 @@ export async function generateRecommendations(
   webSearchFunction?: (query: string) => Promise<string[]>
 ): Promise<Recommendation[]> {
   try {
+    // Detect context from the latest content
+    const { contexts, timeContext } = detectContext(latestContent);
+
+    // Build context-aware system prompt
+    let contextualInstructions = '';
+    if (contexts.length > 0) {
+      contextualInstructions = `\n\nDETECTED CONTEXTS: ${contexts.join(', ')} (Time: ${timeContext})
+
+Based on these contexts, prioritize highly relevant recommendations:
+- morning_routine: Coffee shops nearby, morning routine apps, breakfast delivery
+- podcast_consumer: Similar podcasts, podcast apps, related topics
+- fitness_activity: Workout gear, fitness apps, recovery products
+- work_meeting: Agenda templates, productivity tools, relevant background info
+- fatigue: Sleep tracking, supplements (magnesium, melatonin), relaxation techniques
+- coffee: Local cafes, coffee subscriptions, brewing equipment
+- reading: Book recommendations, reading apps, related articles
+- travel_planning: Packing lists, travel gear, destination guides
+- cooking: Recipe apps, cooking tools, ingredient delivery`;
+    }
+
     // First, get AI to suggest what recommendations would be helpful
     const completion = await openai.chat.completions.create({
       model: 'gpt-4',
@@ -146,6 +221,8 @@ For each recommendation, provide:
 - action: Clear call-to-action
 - search_query: If this recommendation could benefit from web search results (products, current deals, etc), provide a specific search query. Otherwise omit this field.
 - type: one of: product, action, resource, preparation
+- context: The detected context that triggered this recommendation (if applicable)
+- priority: How urgent/relevant this is (low, medium, high)
 
 Consider:
 - Their goals and how to help achieve them
@@ -153,12 +230,13 @@ Consider:
 - Their mentioned needs and interests
 - How their latest content relates to their overall profile
 - Be proactive - suggest things they might not have thought of yet
+- Current time of day and detected activity contexts${contextualInstructions}
 
 Return ONLY a valid JSON object with a "recommendations" array.`,
         },
         {
           role: 'user',
-          content: `User Profile:\n${JSON.stringify(userProfile, null, 2)}\n\nLatest Content:\n${latestContent}\n\nGenerate recommendations:`,
+          content: `User Profile:\n${JSON.stringify(userProfile, null, 2)}\n\nLatest Content:\n${latestContent}\n\nTime: ${timeContext}\nDetected Contexts: ${contexts.join(', ') || 'none'}\n\nGenerate recommendations:`,
         },
       ],
       temperature: 0.8,

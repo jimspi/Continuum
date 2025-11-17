@@ -136,3 +136,40 @@ export async function addManualInsight(insight: string) {
   // Same as analyzing text
   return await analyzeText(insight);
 }
+
+// Transcribe audio and auto-analyze
+export async function transcribeAudio(formData: FormData) {
+  const userId = await requireAuth();
+
+  try {
+    // Call the transcription API
+    const response = await fetch(
+      `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/transcribe`,
+      {
+        method: 'POST',
+        body: formData,
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error('Transcription failed');
+    }
+
+    const data = await response.json();
+
+    if (data.success && data.text) {
+      // Auto-analyze the transcribed text
+      const analysisResult = await analyzeText(data.text);
+
+      return {
+        ...analysisResult,
+        text: data.text,
+      };
+    }
+
+    return { success: false, error: 'No transcription text received' };
+  } catch (error) {
+    console.error('Error transcribing audio:', error);
+    throw error;
+  }
+}
