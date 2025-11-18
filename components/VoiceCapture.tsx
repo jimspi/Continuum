@@ -6,7 +6,7 @@ import { transcribeAudio } from '@/app/actions';
 type RecordingMode = 'manual' | 'periodic' | 'continuous';
 
 interface VoiceCaptureProps {
-  onTranscriptionComplete: (text: string) => void;
+  onTranscriptionComplete: (result: { text: string; recommendations: any[] }) => void;
 }
 
 export default function VoiceCapture({ onTranscriptionComplete }: VoiceCaptureProps) {
@@ -15,6 +15,7 @@ export default function VoiceCapture({ onTranscriptionComplete }: VoiceCapturePr
   const [isTranscribing, setIsTranscribing] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
   const [isEnabled, setIsEnabled] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
@@ -94,6 +95,7 @@ export default function VoiceCapture({ onTranscriptionComplete }: VoiceCapturePr
   // Handle transcription
   const handleTranscription = async (audioBlob: Blob) => {
     setIsTranscribing(true);
+    setError(null);
 
     try {
       const formData = new FormData();
@@ -102,10 +104,16 @@ export default function VoiceCapture({ onTranscriptionComplete }: VoiceCapturePr
       const result = await transcribeAudio(formData);
 
       if (result.success && 'text' in result && result.text) {
-        onTranscriptionComplete(result.text);
+        onTranscriptionComplete({
+          text: result.text,
+          recommendations: result.recommendations || [],
+        });
+      } else {
+        setError('Failed to transcribe audio. Please try again.');
       }
     } catch (error) {
       console.error('Transcription failed:', error);
+      setError('An error occurred during transcription. Please check your internet connection and try again.');
     } finally {
       setIsTranscribing(false);
     }
@@ -247,6 +255,37 @@ export default function VoiceCapture({ onTranscriptionComplete }: VoiceCapturePr
 
           {isTranscribing && (
             <div className="text-sm text-gray-600">Transcribing...</div>
+          )}
+
+          {error && (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+              <div className="flex items-start space-x-2">
+                <svg
+                  className="h-5 w-5 text-red-600 flex-shrink-0 mt-0.5"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
+                </svg>
+                <div className="flex-1">
+                  <p className="text-sm text-red-900">{error}</p>
+                </div>
+                <button
+                  onClick={() => setError(null)}
+                  className="flex-shrink-0 text-red-600 hover:text-red-800"
+                >
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            </div>
           )}
         </div>
       )}

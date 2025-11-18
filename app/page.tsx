@@ -16,6 +16,7 @@ export default function Dashboard() {
   const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'upload' | 'voice'>('upload');
+  const [transcribedText, setTranscribedText] = useState<string>('');
 
   useEffect(() => {
     loadProfile();
@@ -46,10 +47,15 @@ export default function Dashboard() {
     }
   };
 
-  const handleVoiceTranscription = async (text: string) => {
+  const handleVoiceTranscription = async (result: { text: string; recommendations: any[] }) => {
     try {
-      const result = await analyzeText(text);
+      // Set the transcribed text to show user what was captured
+      setTranscribedText(result.text);
+
+      // Use the recommendations that were already generated
       handleAnalysisComplete(result.recommendations);
+
+      // Update the profile
       await handleProfileUpdate();
     } catch (error) {
       console.error('Error processing voice transcription:', error);
@@ -128,6 +134,48 @@ export default function Dashboard() {
                 )}
               </div>
             </div>
+
+            {/* Transcribed Text Display */}
+            {transcribedText && (
+              <div className="bg-green-50 border border-green-200 rounded-lg p-4 md:p-6">
+                <div className="flex items-start space-x-3">
+                  <div className="flex-shrink-0">
+                    <svg
+                      className="h-6 w-6 text-green-600"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                      />
+                    </svg>
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="text-sm font-semibold text-green-900 mb-2">
+                      Transcription Complete
+                    </h3>
+                    <div className="bg-white rounded-md p-3 border border-green-200">
+                      <p className="text-sm text-gray-700 italic">{transcribedText}</p>
+                    </div>
+                    <p className="text-xs text-green-700 mt-2">
+                      Analyzing and updating your profile...
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setTranscribedText('')}
+                    className="flex-shrink-0 text-green-600 hover:text-green-800"
+                  >
+                    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+            )}
 
             {/* Recommendations */}
             {recommendations.length > 0 && (
