@@ -97,11 +97,15 @@ export default function VoiceCapture({ onTranscriptionComplete }: VoiceCapturePr
     setIsTranscribing(true);
     setError(null);
 
+    console.log('Starting transcription, blob size:', audioBlob.size);
+
     try {
       const formData = new FormData();
       formData.append('audio', audioBlob, 'recording.webm');
 
       const result = await transcribeAudio(formData);
+
+      console.log('Transcription result:', result);
 
       if (result.success && 'text' in result && result.text) {
         onTranscriptionComplete({
@@ -109,11 +113,16 @@ export default function VoiceCapture({ onTranscriptionComplete }: VoiceCapturePr
           recommendations: result.recommendations || [],
         });
       } else {
-        setError('Failed to transcribe audio. Please try again.');
+        // Show the actual error from the API
+        const errorMessage = 'error' in result
+          ? `${result.error}${result.details ? ': ' + result.details : ''}${result.hint ? ' (' + result.hint + ')' : ''}`
+          : 'Failed to transcribe audio. Please try again.';
+        setError(errorMessage);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Transcription failed:', error);
-      setError('An error occurred during transcription. Please check your internet connection and try again.');
+      const errorMessage = error.message || 'An error occurred during transcription. Please try recording again.';
+      setError(errorMessage);
     } finally {
       setIsTranscribing(false);
     }

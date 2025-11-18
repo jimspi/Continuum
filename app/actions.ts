@@ -151,13 +151,21 @@ export async function transcribeAudio(formData: FormData) {
       }
     );
 
-    if (!response.ok) {
-      throw new Error('Transcription failed');
-    }
-
     const data = await response.json();
 
+    // If the API returned an error, return it with details
+    if (!response.ok || !data.success) {
+      return {
+        success: false,
+        error: data.error || 'Transcription failed',
+        details: data.details,
+        hint: data.hint,
+      };
+    }
+
     if (data.success && data.text) {
+      console.log('Transcription successful, analyzing...');
+
       // Auto-analyze the transcribed text
       const analysisResult = await analyzeText(data.text);
 
@@ -168,8 +176,12 @@ export async function transcribeAudio(formData: FormData) {
     }
 
     return { success: false, error: 'No transcription text received' };
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error transcribing audio:', error);
-    throw error;
+    return {
+      success: false,
+      error: 'Network error',
+      details: error.message || 'Could not connect to transcription service',
+    };
   }
 }
