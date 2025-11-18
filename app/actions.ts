@@ -53,20 +53,26 @@ export async function getMemories() {
 
 // Analyze text content and update profile
 export async function analyzeText(content: string) {
-  const userId = await requireAuth();
-
   try {
+    const userId = await requireAuth();
+
+    console.log('Analyzing text for user:', userId);
+
     // Analyze the content
     const analysis = await analyzeContent(content);
+    console.log('Content analyzed:', Object.keys(analysis));
 
     // Get current profile
     const currentProfile = await getUserProfile(userId);
+    console.log('Current profile fetched');
 
     // Merge insights into profile
     const updatedProfile = mergeProfile(currentProfile, analysis);
+    console.log('Profile merged');
 
     // Update profile in database
     await updateUserProfile(userId, updatedProfile);
+    console.log('Profile updated in database');
 
     // Generate recommendations with web search
     const recommendations = await generateRecommendations(
@@ -74,18 +80,25 @@ export async function analyzeText(content: string) {
       content,
       searchWeb
     );
+    console.log('Generated recommendations:', recommendations.length);
 
     // Save memory
     await createMemory(userId, content, analysis, recommendations);
+    console.log('Memory saved');
 
     return {
       success: true,
       profile: updatedProfile,
       recommendations,
     };
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error analyzing text:', error);
-    throw error;
+    return {
+      success: false,
+      error: 'Analysis failed',
+      details: error.message || 'Unknown error occurred',
+      recommendations: [],
+    };
   }
 }
 

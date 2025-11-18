@@ -7,7 +7,8 @@ import ProfileView from '@/components/ProfileView';
 import RecommendationsList from '@/components/RecommendationsList';
 import VoiceCapture from '@/components/VoiceCapture';
 import PWAInstall from '@/components/PWAInstall';
-import { getProfile, initializeUser, analyzeText } from './actions';
+import SystemStatus from '@/components/SystemStatus';
+import { getProfile, initializeUser } from './actions';
 import type { UserProfile } from '@/lib/db';
 import type { Recommendation } from '@/lib/openai';
 
@@ -72,6 +73,9 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      {/* System Status Check */}
+      <SystemStatus />
+
       {/* Header */}
       <header className="bg-white border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
